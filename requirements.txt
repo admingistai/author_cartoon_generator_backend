@@ -1,3 +1,7 @@
+# FastAPI and web server dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
 # Core dependencies
 httpx>=0.25.0
 beautifulsoup4>=4.12.0
@@ -5,6 +9,8 @@ Pillow>=10.0.0
 opencv-python>=4.8.0
 replicate>=0.15.0
 python-dotenv>=1.0.0
+
+# CLI dependencies (optional, kept for compatibility)
 typer>=0.9.0
 rich>=13.0.0
 
@@ -13,3 +19,4 @@ lxml>=4.9.0
 
 # Background removal dependencies
 scipy>=1.9.0
+numpy>=1.24.0
