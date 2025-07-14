@@ -17,7 +17,6 @@ from author_extractor import AuthorExtractor
 from image_finder import ImageFinder
 from face_cropper import FaceCropper
 from wsj_cartoonizer import WSJCartoonizer
-from background_remover import BackgroundRemover
 
 
 # Pydantic models
@@ -54,10 +53,6 @@ async def lifespan(app: FastAPI):
         components["image_finder"] = ImageFinder()
         components["face_cropper"] = FaceCropper()
         components["cartoonizer"] = WSJCartoonizer(config.replicate_api_token)
-        components["bg_remover"] = BackgroundRemover(
-            tolerance=config.background_removal_tolerance,
-            edge_smoothing=config.background_removal_edge_smoothing
-        )
         
         print("✅ FastAPI startup: All components initialized successfully")
         yield
@@ -73,7 +68,7 @@ async def lifespan(app: FastAPI):
 # FastAPI app
 app = FastAPI(
     title="WSJ Author Cartoonizer API",
-    description="Transform article authors into Wall Street Journal hedcut-style cartoon portraits with transparent backgrounds",
+    description="Transform article authors into Wall Street Journal hedcut-style cartoon portraits",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -121,7 +116,7 @@ async def health_check():
             "components": {
                 "replicate": bool(config.replicate_api_token),
                 "google_search": bool(config.google_api_key),
-                "background_removal": True
+                "cartoon_generation": True
             }
         }
     except Exception as e:
@@ -133,7 +128,7 @@ async def health_check():
           responses={
               200: {
                   "content": {"image/png": {}},
-                  "description": "Transparent PNG cartoon image"
+                  "description": "PNG cartoon image"
               },
               400: {"model": ErrorResponse, "description": "Invalid request"},
               404: {"model": ErrorResponse, "description": "Author not found"},
@@ -145,7 +140,7 @@ async def generate_cartoon(request: CartoonRequest):
     Generate a WSJ-style cartoon from an article author's photo
     
     Takes an article URL, extracts the author, finds their photo,
-    and returns a transparent PNG cartoon in WSJ hedcut style.
+    and returns a PNG cartoon in WSJ hedcut style.
     """
     try:
         url = str(request.url)
@@ -205,18 +200,9 @@ async def generate_cartoon(request: CartoonRequest):
                 detail=f"Failed to generate cartoon: {str(e)}"
             )
         
-        # Step 6: Remove background (make transparent)
-        try:
-            transparent_cartoon_bytes = components["bg_remover"].process_cartoon(cartoon_bytes)
-        except Exception as e:
-            # Fallback to non-transparent version if background removal fails
-            if config.debug:
-                print(f"Background removal failed, returning non-transparent image: {e}")
-            transparent_cartoon_bytes = cartoon_bytes
-        
-        # Step 7: Return PNG image
+        # Step 6: Return PNG image
         return Response(
-            content=transparent_cartoon_bytes,
+            content=cartoon_bytes,
             media_type="image/png",
             headers={
                 "Content-Disposition": f"inline; filename={author_name.replace(' ', '_')}_wsj_cartoon.png",
