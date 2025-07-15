@@ -123,6 +123,71 @@ async def health_check():
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {e}")
 
 
+@app.post("/debug-search")
+async def debug_search(request: CartoonRequest):
+    """Debug endpoint to test Google image search without generating cartoon"""
+    try:
+        url = str(request.url)
+        
+        # Extract author name
+        author_name, publisher = components["author_extractor"].extract_author(url)
+        if not author_name:
+            return {"error": "Could not extract author name"}
+        
+        # Test image search with detailed response
+        try:
+            # Build search query just like image_finder does
+            if publisher:
+                query = f'"{author_name}" "{publisher}"'
+            else:
+                query = f'"{author_name}"'
+            
+            # Make the Google API call directly to capture response
+            import httpx
+            params = {
+                "key": config.google_api_key,
+                "cx": config.google_search_engine_id,
+                "q": query,
+                "searchType": "image",
+                "num": config.max_search_results,
+                "imgSize": "large",
+                "imgType": "face"
+            }
+            
+            client = httpx.Client(timeout=30)
+            response = client.get("https://www.googleapis.com/customsearch/v1", params=params)
+            response.raise_for_status()
+            data = response.json()
+            client.close()
+            
+            # Return detailed debug info
+            debug_info = {
+                "author_name": author_name,
+                "publisher": publisher,
+                "query": query,
+                "api_params": {k: v for k, v in params.items() if k != "key"},
+                "api_key_present": bool(config.google_api_key),
+                "api_key_prefix": config.google_api_key[:8] + "..." if config.google_api_key else None,
+                "response_keys": list(data.keys()),
+                "items_count": len(data.get("items", [])),
+                "search_info": data.get("searchInformation", {}),
+                "error": data.get("error"),
+                "full_response": data
+            }
+            
+            return debug_info
+            
+        except Exception as e:
+            return {
+                "error": f"Search failed: {str(e)}",
+                "author_name": author_name,
+                "publisher": publisher
+            }
+            
+    except Exception as e:
+        return {"error": f"Failed to extract author: {str(e)}"}
+
+
 @app.post("/generate-cartoon", 
           response_class=Response,
           responses={
