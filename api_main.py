@@ -134,16 +134,26 @@ async def debug_search(request: CartoonRequest):
         if not author_name:
             return {"error": "Could not extract author name"}
         
-        # Test image search with detailed response
+        # Test image search using actual ImageFinder class
         try:
-            # Build search query just like image_finder does
+            # Use the actual ImageFinder to see where it fails
+            try:
+                image_url = components["image_finder"].find_author_image(author_name, publisher)
+                image_found = True
+                image_url_result = image_url
+                image_error = None
+            except Exception as e:
+                image_found = False
+                image_url_result = None
+                image_error = str(e)
+            
+            # Also make direct API call for comparison
+            import httpx
             if publisher:
                 query = f'"{author_name}" "{publisher}"'
             else:
                 query = f'"{author_name}"'
-            
-            # Make the Google API call directly to capture response
-            import httpx
+                
             params = {
                 "key": config.google_api_key,
                 "cx": config.google_search_engine_id,
@@ -160,19 +170,26 @@ async def debug_search(request: CartoonRequest):
             data = response.json()
             client.close()
             
-            # Return detailed debug info
+            # Return comparison
             debug_info = {
                 "author_name": author_name,
                 "publisher": publisher,
                 "query": query,
-                "api_params": {k: v for k, v in params.items() if k != "key"},
-                "api_key_present": bool(config.google_api_key),
-                "api_key_prefix": config.google_api_key[:8] + "..." if config.google_api_key else None,
-                "response_keys": list(data.keys()),
-                "items_count": len(data.get("items", [])),
-                "search_info": data.get("searchInformation", {}),
-                "error": data.get("error"),
-                "full_response": data
+                "image_finder_result": {
+                    "success": image_found,
+                    "image_url": image_url_result,
+                    "error": image_error
+                },
+                "direct_api_result": {
+                    "items_count": len(data.get("items", [])),
+                    "search_info": data.get("searchInformation", {}),
+                    "error": data.get("error"),
+                    "first_few_urls": [item.get("link") for item in data.get("items", [])[:3]]
+                },
+                "config": {
+                    "max_search_results": config.max_search_results,
+                    "debug": config.debug
+                }
             }
             
             return debug_info
