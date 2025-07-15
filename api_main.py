@@ -243,13 +243,22 @@ async def generate_cartoon(request: CartoonRequest):
         
         # Step 2: Find author image
         try:
-            image_url = components["image_finder"].find_author_image(author_name, url)
+            print(f"[GENERATE-CARTOON] Starting image search for: {author_name}")
+            print(f"[GENERATE-CARTOON] Components available: {list(components.keys())}")
+            print(f"[GENERATE-CARTOON] ImageFinder type: {type(components.get('image_finder'))}")
+            
+            image_url = components["image_finder"].find_author_image(author_name, publisher)
+            print(f"[GENERATE-CARTOON] ImageFinder returned: {image_url}")
+            
             if not image_url:
+                print(f"[GENERATE-CARTOON] Empty image_url returned")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Could not find image for author: {author_name}"
                 )
         except Exception as e:
+            print(f"[GENERATE-CARTOON] ImageFinder exception: {str(e)}")
+            print(f"[GENERATE-CARTOON] Exception type: {type(e)}")
             raise HTTPException(
                 status_code=404,
                 detail=f"Failed to find author image: {str(e)}"
