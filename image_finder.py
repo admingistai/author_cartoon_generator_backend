@@ -37,6 +37,9 @@ class ImageFinder:
         
         if config.debug:
             print(f"[IMAGE SEARCH] Query: {query}")
+        else:
+            # Always log query for Railway debugging
+            print(f"[IMAGE SEARCH] Searching for: {author_name}, Query: {query}")
         
         # Search using Google Custom Search API
         params = {
@@ -49,6 +52,12 @@ class ImageFinder:
             "imgType": "face"    # Focus on faces/portraits
         }
         
+        # Always log API params (without exposing full API key)
+        debug_params = params.copy()
+        if debug_params.get("key"):
+            debug_params["key"] = f"{debug_params['key'][:8]}...{debug_params['key'][-4:]}"
+        print(f"[IMAGE SEARCH] API params: {debug_params}")
+        
         try:
             response = self.client.get(
                 "https://www.googleapis.com/customsearch/v1",
@@ -58,11 +67,29 @@ class ImageFinder:
             
             data = response.json()
             
+            # Enhanced debugging for Railway deployment issues
             if config.debug:
                 total_results = len(data.get("items", []))
                 print(f"[IMAGE SEARCH] Found {total_results} results")
+                print(f"[IMAGE SEARCH] Response keys: {list(data.keys())}")
+                if "searchInformation" in data:
+                    search_info = data["searchInformation"]
+                    print(f"[IMAGE SEARCH] Total results: {search_info.get('totalResults', 'unknown')}")
+                    print(f"[IMAGE SEARCH] Search time: {search_info.get('searchTime', 'unknown')}")
+                if "error" in data:
+                    print(f"[IMAGE SEARCH] API Error: {data['error']}")
+            else:
+                # Always log for Railway debugging
+                total_results = len(data.get("items", []))
+                print(f"[IMAGE SEARCH] Found {total_results} results for '{author_name}'")
+                if "error" in data:
+                    print(f"[IMAGE SEARCH] API Error: {data['error']}")
+                if total_results == 0 and "searchInformation" in data:
+                    print(f"[IMAGE SEARCH] Google says total results: {data['searchInformation'].get('totalResults', 'unknown')}")
             
             if "items" not in data or not data["items"]:
+                # Log the full response for debugging on Railway
+                print(f"[IMAGE SEARCH] No items in response. Full response: {data}")
                 raise ValueError("No images found for author")
             
             # Find the best image (first valid one)
